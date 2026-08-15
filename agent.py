@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 from tools import TOOL_SCHEMAS, run_tool, guess_domain
 
-MODEL = "claude-sonnet-4-6"
+MODEL = "claude-haiku-4-5-20251001"
 
 VERDICT_SCHEMA_DESCRIPTION = """
 Return ONLY a single JSON object (no markdown, no prose) with exactly these
@@ -49,6 +49,11 @@ For each lead (name + company) you are given, you must:
 3. Only THEN produce a final verdict. Do not guess facts you have not checked
    with a tool. If a tool returns nothing useful, say so in "reasoning" and
    lower the confidence_score accordingly -- do not invent details to fill gaps.
+
+IMPORTANT: your final response (the one that is not a tool call) must contain
+ONLY the JSON object below. No preamble like "Here is the verdict", no
+explanation before or after it, no markdown code fences. The very first
+character of your final response must be an opening curly brace.
 
 Confidence guidance:
 - 0.8-1.0: domain verified AND search returned a specific, relevant hit for this person/company.
@@ -171,15 +176,32 @@ class MockAgent:
 
 
 def _parse_verdict(text: str, lead: dict) -> dict:
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.strip("`")
-        text = text.split("\n", 1)[-1] if text.lower().startswith("json") else text
-    try:
-        verdict = json.loads(text)
-        return verdict
-    except Exception:
-        return _fallback_verdict(lead, reasoning=f"Could not parse model output as JSON: {text[:200]!r}")
+    """
+    Extract the verdict JSON from the model's final text response. The
+    system prompt asks for JSON only, but models sometimes add a stray
+    sentence before it ("Here is the verdict:") or wrap it in a ```json
+    fence anyway -- so this pulls out the {...} block rather than assuming
+    the whole string is clean JSON.
+    """
+    import re
+
+    # Prefer a fenced ```json ... ``` block if present.
+    fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    candidate = fence_match.group(1) if fence_match else None
+
+    # Otherwise, take the substring from the first '{' to the last '}'.
+    if candidate is None:
+        start, end = text.find("{"), text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            candidate = text[start:end + 1]
+
+    if candidate:
+        try:
+            return json.loads(candidate)
+        except Exception:
+            pass
+
+    return _fallback_verdict(lead, reasoning=f"Could not parse model output as JSON: {text[:200]!r}")
 
 
 def _fallback_verdict(lead: dict, reasoning: str) -> dict:
