@@ -22,6 +22,9 @@ import json
 import os
 import sys
 
+from dotenv import load_dotenv
+load_dotenv()  # reads ANTHROPIC_API_KEY (and anything else) from a local .env file, if present
+
 from agent import ClaudeAgent, MockAgent
 
 
@@ -48,7 +51,7 @@ def pick_provider(choice: str):
 def print_verdict(v: dict) -> None:
     bar_len = round(v.get("confidence_score", 0) * 20)
     bar = "#" * bar_len + "-" * (20 - bar_len)
-    print(f"\n{v['name']}  —  {v['company']}")
+    print(f"\n{v['name']}  -  {v['company']}")
     print(f"  domain:      {v['likely_domain']}  (verified: {v['domain_verified']})")
     print(f"  role:        {v['likely_role']}")
     print(f"  summary:     {v['linkedin_style_summary']}")
@@ -73,7 +76,7 @@ def main():
     agent, provider_name = pick_provider(args.provider)
     print(f"Running with provider: {provider_name}  ({len(leads)} leads)")
     if provider_name == "mock":
-        print("(No ANTHROPIC_API_KEY found / --provider mock used — running the offline "
+        print("(No ANTHROPIC_API_KEY found / --provider mock used - running the offline "
               "rule-based agent. Same tools, simulated reasoning. Set ANTHROPIC_API_KEY "
               "and re-run to see the real Claude tool-calling agent.)")
 

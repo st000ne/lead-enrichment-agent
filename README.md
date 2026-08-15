@@ -59,12 +59,6 @@ Domain resolves *and* search names the person → high confidence. Only one
 signal fires → medium. Neither fires → low, stated explicitly rather than
 papered over.
 
-**A real limitation, left in on purpose:** two of the fictional sample
-company names happened to resolve to real, unrelated registered domains.
-Good illustration that `domain_verified: true` is one signal, not proof —
-DNS resolving only means the domain exists, not that it belongs to that
-company.
-
 **Offline mock mode.** With no `ANTHROPIC_API_KEY`, `main.py` falls back to
 `MockAgent` — same tools, a heuristic instead of an LLM for the reasoning
 step — so the repo runs for anyone with no setup, while the real

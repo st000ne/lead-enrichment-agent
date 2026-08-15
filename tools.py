@@ -111,16 +111,31 @@ def web_search(query: str) -> list[dict]:
     return _mock_search(query)
 
 
+_LEGAL_SUFFIXES = {"inc", "llc", "ltd", "corp", "co", "gmbh", "studio"}
+
+
 def guess_domain(company_name: str) -> str:
     """
-    Cheap heuristic for a company's likely primary domain: strip legal
-    suffixes and punctuation, lowercase, join, add .com. This is a *guess*
+    Cheap heuristic for a company's likely primary domain: strip trailing
+    legal-entity suffixes, lowercase, join, add .com. This is a *guess*
     that check_domain() below is meant to verify -- it is not itself
     evidence of anything.
+
+    Suffixes are only stripped from the END of the name, one word at a
+    time, and only while the last word is an exact suffix match. This
+    matters: an earlier version stripped "co" anywhere it appeared as a
+    standalone word, which mangled names like "REI Co-op" (the hyphen
+    splits it into "Co" + "op", and "Co" alone matched) into "reiop.com".
+    Anchoring to the end fixes that, since "op" -- not "Co" -- is the
+    actual last word there.
     """
-    name = re.sub(r"\b(inc|llc|ltd|corp|co|gmbh|studio)\b", "", company_name, flags=re.I)
-    name = re.sub(r"[^a-zA-Z0-9]", "", name).lower()
-    return f"{name}.com"
+    words = re.findall(r"[A-Za-z0-9]+", company_name)
+    trimmed = words[:]
+    while trimmed and trimmed[-1].lower() in _LEGAL_SUFFIXES:
+        trimmed.pop()
+    # Don't let a name that's ENTIRELY suffix words (edge case) strip to nothing.
+    final_words = trimmed if trimmed else words
+    return "".join(w.lower() for w in final_words) + ".com"
 
 
 def check_domain(domain: str) -> dict:
